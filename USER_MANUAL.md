@@ -1,6 +1,6 @@
 # Duplicate File Detector — User Manual
 
-> **Version:** 1.0 · **Date:** July 2025 · **Author:** Daniel
+> **Version:** 1.1 · **Date:** April 2026 · **Author:** Daniel  
 > Cross-platform tool for detecting duplicate files. Runs on **Windows**, **macOS**, and **Linux**.
 
 ---
@@ -61,8 +61,9 @@ Your Folder
 - **Delete or stage** — Permanently delete duplicates, or move them to a staging folder (preserving directory structure)
 - **JSON export** — Export results as structured JSON for scripting
 - **Cancel support** — Cancel long scans at any time (GUI)
-- **Settings persistence** — Remembers your paths, options, and window size between sessions
-- **Pure Python** — No external dependencies beyond the standard library (+ Tkinter for GUI)
+- **Settings persistence** — Remembers paths, options, **view mode**, and window size (`~/.dedup/settings.json`)
+- **Core scan** — Standard library only (`dedup.py` + CLI)
+- **GUI previews (optional)** — **Pillow** for images; **ffmpeg** on `PATH` for video first-frame thumbnails
 
 ---
 
@@ -73,7 +74,9 @@ Your Folder
 | Requirement | Purpose | Required For |
 |-------------|---------|--------------|
 | **Python 3.10+** | Runtime | All features |
-| **Tkinter** | GUI interface | GUI only (included with Python on most systems) |
+| **Tkinter** | GUI interface | GUI (included with Python on most systems) |
+| **Pillow** | `pip install Pillow` | GUI image thumbnails (Thumbnails / Grid / List + preview) |
+| **ffmpeg** | Install separately; add to `PATH` | GUI video first-frame thumbnails |
 
 ### Step-by-step
 
@@ -81,9 +84,13 @@ Your Folder
 # 1. Navigate to the application directory
 cd duplicate_file_detector
 
-# 2. No pip install needed — no external dependencies!
-#    Just run it directly.
+# 2. Core: no pip required for scanning / CLI.
+#    Optional — for GUI image & video previews:
+pip install Pillow
+# Install ffmpeg from https://ffmpeg.org/download.html (Windows: winget install ffmpeg, etc.)
 ```
+
+Without Pillow or ffmpeg, the GUI still works; non-image/video files (or missing tools) show a small placeholder tile with the file extension.
 
 #### Installing Tkinter (if missing on Linux)
 
@@ -114,8 +121,8 @@ python dedup_gui.py
 
 1. Click **Browse…** next to **Scan Folder** and pick a directory
 2. Click **🔍 Scan**
-3. Review duplicate groups in the results tree
-4. Click **Select All Duplicates** (keeps the oldest file per group)
+3. Review duplicate groups (switch **View** if you want thumbnails — see [§4](#4-gui-guide))
+4. Click **Select All Duplicates** (leaves the **keeper** per group — see [§7](#7-duplicate-handling))
 5. Click **🗑️ Delete Selected** or **📦 Move to Staging**
 
 ### CLI (for scripting and automation)
@@ -153,32 +160,34 @@ The main window opens with your saved settings restored from the last session.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  🔍  Duplicate File Detector                                 │  ← Title
+│  🔍  Duplicate File Detector                                 │
 ├──────────────────────────────────────────────────────────────┤
 │  📁  Scan Settings                                           │
-│  ├─ Scan Folder:     [path]        [Browse…]                 │
-│  ├─ Staging Dir:     [path]        [Browse…]  (for Move)    │
-│  ├─ Min Size (bytes): [0]  ▲▼  ☐ Follow Symlinks           │
-│  │                          ☐ Disable Default Skips          │
-│  └─ Extra Skip Dirs:  [comma-separated]                     │
+│  ├─ Scan Folder / Staging Dir / Min size / symlinks / skips  │
 ├──────────────────────────────────────────────────────────────┤
 │  📋  Duplicate Results                                       │
-│  ┌────┬───────┬──────────────────┬────────┬──────────┐      │
-│  │ ✓  │ Group │ File Path        │ Size   │ Modified │      │
-│  ├────┼───────┼──────────────────┼────────┼──────────┤      │
-│  │ ☐  │ 1 ◄   │ docs/a.txt      │ 12 B   │ 2025-07  │      │
-│  │ ☑  │ 1     │ docs/sub/b.txt  │ 12 B   │ 2025-07  │      │
-│  │ ☑  │ 1     │ docs/sub2/c.txt │ 12 B   │ 2025-07  │      │
-│  └────┴───────┴──────────────────┴────────┴──────────┘      │
-│  1 duplicate group(s)  •  2 duplicate file(s)  •  Wasted…   │
-│  [Select All Duplicates]  [Deselect All]                     │
+│  View: [ List ▼ ]  (List | Thumbnails | Grid | List + preview) │
+│  ┌────┬───────┬─────────────┬──────┬─────────┬──────────────┐ │
+│  │ ✓  │ Group │ File Path   │ Size │ Modified │ Note       │ │
+│  │ ☐  │ 1 ◄   │ a.jpg       │ …    │ …       │            │ │
+│  │ ☑  │ 1     │ a (1).jpg   │ …    │ …       │ copy-style │ │
+│  └────┴───────┴─────────────┴──────┴─────────┴──────────────┘ │
+│  … or thumbnail / grid tiles with Original vs Duplicate …    │
 ├──────────────────────────────────────────────────────────────┤
-│  ████████████████████████░░░░░░░░░░  3/7                    │  ← Progress
-├──────────────────────────────────────────────────────────────┤
-│  [🔍 Scan] [✖ Cancel] [🗑️ Delete] [📦 Move] [💾 Export]    │
-│  [↺ Clear]                        Status: Scanning…         │
+│  Progress   [🔍 Scan] [✖ Cancel] [🗑️ Delete] [📦 Move] …     │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+### View modes
+
+| Mode | What you see |
+|------|----------------|
+| **List** | Table: ✓, Group, path, size, modified, **Note** |
+| **Thumbnails** | Scrollable groups; each file is a tile (image or video first frame when Pillow/ffmpeg available) |
+| **Grid** | Same tiles as Thumbnails, arranged in a **multi-column grid** per group |
+| **List + preview** | List on top; **Visual compare** strip below shows thumbnails for the **selected tree row’s group** |
+
+Hints under **View** remind you to install **Pillow** and/or add **ffmpeg** to `PATH` when missing.
 
 ### Scan Settings
 
@@ -191,25 +200,24 @@ The main window opens with your saved settings restored from the last session.
 | **Disable Default Skips** | Off | Don't skip the default directories (`.git`, `node_modules`, etc.). Useful if you want to scan everything. |
 | **Extra Skip Dirs** | (empty) | Comma-separated list of additional directory names to skip. Added to the default list. |
 
-### Results Tree
-
-The results tree shows all files in duplicate groups:
+### Results Tree (List view)
 
 | Column | Description |
 |--------|-------------|
-| **✓** | Checkbox — click to select/deselect for delete/move actions |
-| **Group** | Group number. `◄` marks the **original** file (oldest by modification time). |
+| **✓** | Checkbox — click the ✓ column to toggle selection for delete/move |
+| **Group** | Group number. **`◄`** marks the **keeper** (preferred file to keep when using **Select All Duplicates**). |
 | **File Path** | Relative path from the scan root |
 | **Size** | Human-readable file size (e.g., `1.2 MB`) |
 | **Modified** | Last modification date (`YYYY-MM-DD HH:MM`) |
+| **Note** | Short hint: e.g. `copy-style name`, `longer name`, `copy-style (keeper)` |
 
 ### Understanding Groups
 
-Each duplicate group contains files with **identical SHA-256 hashes** (and therefore identical content). Within each group:
+Each group lists files with the **same SHA-256 hash** (identical bytes).
 
-- The **◄** marker shows the **original** file — the one with the oldest modification time
-- All other files in the group are **duplicates**
-- When you delete or move duplicates, the original is always kept
+- **`◄`** = **keeper** — the file the tool prefers to retain (see [§7 Duplicate Handling](#7-duplicate-handling)).
+- Other rows are **duplicates** relative to that keeper.
+- **Select All Duplicates** checks every duplicate row and leaves the keeper unchecked (unless you change checkboxes manually).
 
 ### Action Buttons
 
@@ -225,10 +233,11 @@ Each duplicate group contains files with **identical SHA-256 hashes** (and there
 ### Select All Duplicates
 
 Click **Select All Duplicates** to automatically:
-- ✅ Check all **duplicate** files (not the original)
-- ☐ Uncheck all **original** files (marked with ◄)
 
-This is the fastest way to select files for deletion — it keeps the oldest file in each group and selects everything else.
+- Check every **duplicate** row (not the keeper marked **◄**)
+- Uncheck each **keeper**
+
+This matches the CLI’s default keeper rules ([§7](#7-duplicate-handling)).
 
 ### Delete vs Move to Staging
 
@@ -278,7 +287,7 @@ python dedup.py <path> [OPTIONS]
 |------|---------|-------------|
 | `path` | (required) | Directory to scan |
 | `--json` | off | Output report as JSON instead of text |
-| `--delete` | off | Delete duplicates (keeps oldest file per group). Prompts for confirmation. |
+| `--delete` | off | Delete duplicates (keeps **keeper** per group — see §7). Prompts for confirmation. |
 | `--stage DIR` | — | Move duplicates to this staging directory instead of deleting |
 | `--skip DIRS` | `""` | Comma-separated list of directory names to skip (added to defaults) |
 | `--follow-symlinks` | off | Follow symbolic links when scanning |
@@ -294,10 +303,10 @@ python dedup.py ~/Downloads
 # Output as JSON (useful for scripting)
 python dedup.py ~/Downloads --json
 
-# Move duplicates to a staging folder (keeps oldest file per group)
+# Move duplicates to a staging folder (keeps keeper per group — §7)
 python dedup.py ~/Downloads --stage ./staging
 
-# Delete duplicates outright (keeps oldest file per group, with confirmation)
+# Delete duplicates outright (keeps keeper per group; confirms first)
 python dedup.py ~/Downloads --delete
 
 # Ignore files smaller than 1KB
@@ -330,9 +339,9 @@ DUPLICATE REPORT
 ============================================================
 
 Group 1 (12.0 B each, SHA-256: a1b2c3d4e5f67890...):
-  1. docs/a.txt  (modified: 2025-07-15 09:30) <-- original
-  2. docs/sub/b.txt  (modified: 2025-07-15 10:15)
-  3. docs/sub2/c.txt  (modified: 2025-07-15 11:00)
+  1. docs/a.txt  (modified: 2025-07-15 09:30) <-- original (keeper)
+  2. docs/sub/b.txt  (modified: 2025-07-15 10:15) <-- duplicate
+  3. docs/sub2/c.txt  (modified: 2025-07-15 11:00) <-- duplicate
 
 ============================================================
 Summary: 1 duplicate group(s), 2 duplicate file(s)
@@ -356,12 +365,14 @@ Wasted space: 24.0 B
         {
           "path": "docs/a.txt",
           "size": 12,
-          "modified": "2025-07-15T09:30:00"
+          "modified": "2025-07-15T09:30:00",
+          "copy_style_name": false
         },
         {
           "path": "docs/sub/b.txt",
           "size": 12,
-          "modified": "2025-07-15T10:15:00"
+          "modified": "2025-07-15T10:15:00",
+          "copy_style_name": false
         }
       ]
     }
@@ -429,11 +440,16 @@ Empty (0-byte) files are always skipped. Multiple empty files are technically du
 
 ## 7. Duplicate Handling
 
-### Which file is kept?
+### Which file is kept (the “keeper”)?
 
-When deleting or moving duplicates, the tool keeps the **oldest file** in each group (by modification time) and removes/moves the rest.
+For each group of byte-identical files, exactly one **keeper** is chosen. The rest are candidates for delete/stage. Order of preference:
 
-**Rationale:** The oldest file is most likely the original. Later copies are likely duplicates.
+1. **Non–copy-style stem** — does **not** end with `(digits)` or `-digits` before the extension (e.g. prefer `report.pdf` over `report (1).pdf` or `photo-2.jpg`).
+2. **Shorter basename** — smaller `len(path.name)` (longer names are treated as duplicates first when this rule applies).
+3. **Older modification time** — if still tied on length and copy-style class.
+4. **Lexicographic `path.name`** — final stable tie-break.
+
+The CLI text report labels the keeper line with `<-- original (keeper)` and may label duplicates with reasons such as `(copy-style name)` or `(longer name)`.
 
 ### Delete action
 
@@ -460,12 +476,11 @@ python dedup.py ~/Downloads --stage ./staging
 
 ### GUI delete/move
 
-In the GUI, you have fine-grained control:
-1. **Select which files** to delete/move using checkboxes
-2. Use **Select All Duplicates** to auto-select all non-original files
-3. Or manually select specific files within groups
-4. Click **🗑️ Delete Selected** or **📦 Move to Staging**
-5. Confirm the action in the dialog
+In the GUI:
+
+1. Select files with checkboxes (✓ column), or **Select All Duplicates** to select every non-keeper in each group.
+2. **Delete Selected** / **Move to Staging** operate only on checked paths (relative paths are tracked consistently in List and thumbnail views).
+3. Confirm in the dialog when deleting.
 
 ---
 
@@ -481,6 +496,7 @@ All GUI settings are saved automatically when you close the window and restored 
 - Follow symlinks option
 - Disable default skips option
 - Extra skip directories
+- **Results view mode** (`list` / `thumbs` / `grid` / `split` — see View combobox)
 - Window position and size
 
 ### Where settings are stored
@@ -580,12 +596,24 @@ sudo dnf install python3-tkinter
 **Symptom:** Not all settings are visible.
 
 **Fix:**
-- Resize the window — it's fully resizable with a minimum of 700×580
-- The app remembers window size between sessions
+- Resize the window — it's fully resizable with a typical minimum around **700×580** (may vary by theme).
+- The app remembers window size between sessions.
+
+### Thumbnails show gray boxes / no pictures or video frames
+
+**Symptom:** Tiles show only the file extension, not a preview.
+
+**Fix:**
+- **Images:** `pip install Pillow` and restart the GUI.
+- **Videos** (MP4, MOV, etc.): install **ffmpeg** and ensure it is on your system **PATH** (`ffmpeg -version` in a terminal). Restart the GUI after changing PATH.
+
+### Video thumbnails are slow
+
+**Explanation:** Each video runs **ffmpeg** once to extract the first frame on the UI thread. Large batches of videos can feel sluggish (see TODO.md for future async work).
 
 ### No duplicates found
 
-**Symptom:** Scan completes with "No duplicate files found!"
+**Symptom:** Scan completes with "No duplicate files found!" (after a full, non-cancelled scan)
 
 **Possible causes:**
 - The folder genuinely has no duplicates (this is good!)
@@ -607,6 +635,12 @@ sudo dnf install python3-tkinter
 
 **Explanation:** The cancel event is checked between file hashes. If a large file is currently being hashed, the cancel takes effect after that file's hash completes. This is by design — canceling mid-hash could leave data in an inconsistent state.
 
+### "Scan was cancelled" appears instead of results
+
+**Symptom:** After clicking Cancel during a scan, the message "Scan was cancelled" appears.
+
+**Explanation:** This is the correct behavior. When you cancel a scan, the tool shows "Scan was cancelled" instead of "No duplicate files found!" — which would be misleading since the scan didn't complete. To get full results, simply scan the folder again without cancelling.
+
 ---
 
 ## 11. Architecture & File Layout
@@ -624,34 +658,33 @@ duplicate_file_detector/
 
 ### Dependencies
 
-None beyond the Python standard library and Tkinter.
+- **Required:** Python standard library + **Tkinter** (GUI).
+- **Optional (GUI previews):** **Pillow** (images), **ffmpeg** on `PATH` (video first frame).
 
 ### Key functions in `dedup.py`
 
 | Function | Purpose |
 |----------|---------|
-| `get_file_hash()` | Compute SHA-256 hash of a file (64KB buffer) |
-| `scan_directory()` | 3-tier scan: walk → size groups → hash groups → duplicates |
-| `format_size()` | Convert bytes to human-readable size (B, KB, MB, GB, TB) |
-| `print_report()` | Print human-readable duplicate report to stdout |
-| `json_report()` | Generate JSON-serializable report dict |
-| `move_duplicates()` | Move duplicate files to staging directory |
-| `delete_duplicates()` | Permanently delete duplicate files |
-| `main()` | CLI entry point (argparse) |
+| `stem_suggests_copy()` | True if stem looks like `… (1)` / `…-2` download-style names |
+| `sort_paths_for_keep()` | Order paths so index `0` is the keeper for a duplicate group |
+| `get_file_hash()` | SHA-256 hash of a file (64 KB buffer) |
+| `scan_directory()` | Walk → size groups → hash → duplicate dict |
+| `format_size()` | Human-readable byte sizes |
+| `print_report()` / `json_report()` | Text / JSON output (`copy_style_name` per file in JSON) |
+| `move_duplicates()` / `delete_duplicates()` | Stage or delete non-keepers |
+| `main()` | CLI entry |
 
 ### Key functions in `dedup_gui.py`
 
 | Function | Purpose |
 |----------|---------|
-| `DedupGUI.__init__()` | Initialize GUI, load settings, build UI |
-| `DedupGUI._on_scan()` | Start scan in a worker thread |
-| `DedupGUI._do_scan()` | Worker thread: run scan with progress callbacks |
-| `DedupGUI._populate_tree()` | Fill treeview with duplicate groups |
-| `DedupGUI._on_delete()` | Delete selected files with confirmation |
-| `DedupGUI._on_stage()` | Move selected files to staging |
-| `DedupGUI._on_export()` | Export results as JSON |
-| `DedupGUI._select_all_dupes()` | Auto-select all non-original duplicates |
-| `run_gui()` | Entry point — create Tk root and run mainloop |
+| `_apply_results_mode()` | Show List vs Thumbnails vs Grid vs split preview layout |
+| `_populate_tree()` | Fill tree + `_group_paths` / hashes |
+| `_load_thumbnail_photo()` | PIL image or ffmpeg pipe → `PhotoImage` |
+| `_collect_selected_paths()` | Resolve `_selected_rel_paths` to absolute `Path`s |
+| `_on_scan()` / `_do_scan()` | Threaded scan with progress |
+| `_select_all_dupes()` | Select every path that is not the keeper |
+| `run_gui()` | Entry point |
 
 ### Thread safety
 
@@ -683,12 +716,13 @@ The GUI uses worker threads for scan, delete, and move operations to keep the UI
 │    --no-default-skip   Scan all directories (incl. .git)     │
 ├──────────────────────────────────────────────────────────────┤
 │  Strategy:  Size → SHA-256 → Group                           │
-│  Keeps:     Oldest file per group (by modification time)     │
-│  Skips:     .git, node_modules, venv, __pycache__, etc.     │
-│  Settings:  ~/.dedup/settings.json                           │
+│  Keeper:    copy-style → shorter name → mtime → name       │
+│  Skips:     .git, node_modules, venv, __pycache__, etc.      │
+│  Settings:  ~/.dedup/settings.json (+ view mode)           │
+│  Previews:  Pillow (images), ffmpeg PATH (video) — optional │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-_Duplicate File Detector — Pure Python, no external dependencies_
+_Core scanning: standard library. GUI previews: optional Pillow + ffmpeg._

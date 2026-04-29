@@ -5,80 +5,83 @@
 重复文件检测器（Duplicate File Detector）— Python + Tkinter 跨平台工具
 
 - 快速检测文件夹中的重复文件
-- 支持 GUI（Tkinter）和 CLI 双界面
-- 纯 Python，无外部依赖
+- 支持 **GUI**（Tkinter）和 **CLI**
+- 核心扫描：**仅标准库**（`dedup.py`：hashlib、os.walk 等）
+- GUI 缩略图 / 视频首帧：**可选** 安装 **Pillow**、系统 **PATH** 上的 **ffmpeg**
 
 ## 技术栈
 
-- Python 3.10+（使用 `set[str]` 类型提示和 `Path.is_relative_to()`）
-- Tkinter + ttk（跨平台 GUI，标准库）
-- hashlib（SHA-256 哈希，标准库）
-- threading（GUI 后台扫描线程）
-- JSON（设置持久化）
+- Python 3.10+（`set[str]`、`Path.is_relative_to()`）
+- Tkinter + ttk（GUI）
+- hashlib（SHA-256）
+- threading（GUI 后台扫描）
+- JSON（`~/.dedup/settings.json`）
+- **可选：** Pillow（图片缩略图）、ffmpeg（视频首帧 PNG pipe）
 
 ## 架构
 
 ```
-dedup.py              ← 核心扫描引擎 + CLI 接口
-dedup_gui.py          ← Tkinter GUI（入口点）
-settings.py           ← JSON 设置持久化（~/.dedup/settings.json）
+dedup.py              ← 核心扫描引擎 + CLI（sort_paths_for_keep、报告、删除/移动）
+dedup_gui.py          ← Tkinter GUI（多视图、缩略图、勾选同步）
+settings.py           ← JSON 设置持久化（含 results_view_mode）
 ```
 
 ### 模块职责
 
-- **dedup.py**：3 层比较策略（文件大小 → SHA-256 哈希 → 分组报告）、CLI 接口（argparse）、删除/移动操作、JSON 报告生成、`log_callback` / `progress_callback` / `cancel_event` 参数支持 GUI 集成
-- **dedup_gui.py**：Tkinter GUI、扫描设置面板、结果树视图（复选框选择）、删除/移动/导出操作、进度条、取消支持、工作线程（线程安全：主线程捕获 Tk 变量后传给工作线程）、设置持久化
-- **settings.py**：`~/.dedup/settings.json` 读写、默认值回退、窗口位置记忆
+- **dedup.py**：三层策略（大小 → SHA-256 → 分组）、`stem_suggests_copy`、`sort_paths_for_keep`、CLI、`json_report`（含 `copy_style_name`）、`log_callback` / `progress_callback` / `cancel_event` 供 GUI
+- **dedup_gui.py**：扫描设置、**View**（List / Thumbnails / Grid / List + preview）、树视图与缩略图、**\_selected_rel_paths** 勾选、删除/移动/导出、底部依赖状态（Pillow/FFmpeg）、工作线程 + `root.after()` 更新 UI
+- **settings.py**：`~/.dedup/settings.json`（路径、选项、`results_view_mode`、窗口几何）
 
 ## 已决定的事情
 
-- 使用 3 层比较策略（大小 → 哈希 → 分组），先排除大小不同的文件再哈希
-- 使用 SHA-256（而非 MD5），碰撞概率可忽略不计，无需逐字节验证
-- 保留最旧文件（按修改时间），删除/移动其余副本
-- 空文件（0 字节）始终跳过，避免误报
-- GUI 使用工作线程 + `root.after()` 更新 UI，保证线程安全
-- `--delete` 和 `--stage` 互斥，CLI 和 GUI 均做校验
-- GUI 删除操作需要确认提示（messagebox.askyesno）
-- 设置存储在 `~/.dedup/settings.json`（而非平台特定目录，简化实现）
-- 不做感知哈希（pHash），仅做精确字节级重复检测
+- 使用 3 层比较策略（大小 → 哈希 → 分组），空文件（0 字节）跳过
+- SHA-256；keeper：**非 `(n)`/`-n` 副本样式 stem** → **更短 basename** → 更旧 mtime → 名字字典序
+- GUI 工作线程不直接读 Tk 变量（主线程捕获后传入）
+- `--delete` 与 `--stage` 互斥
+- 设置存 `~/.dedup/settings.json`
+- 不做感知哈希（pHash），仅精确字节级重复
 
 ## 不要做的事情
 
-- 不做感知哈希 / 图像相似度检测（超出范围，考虑未来扩展）
-- 不做多根目录同时扫描（当前仅支持单个扫描根目录，跨子文件夹重复检测已支持）
-- 不做文件内容逐字节对比（SHA-256 碰撞概率可忽略，无需额外验证）
-- 不做实时文件监视 / 文件系统监听
-- 不做网络驱动器扫描优化
-- 不做文件去重（硬链接 / 符号链接替代），仅检测 + 删除/移动
+- 不做感知哈希 / 图像相似度（未来可扩展）
+- 不做多根目录同时扫描（单根递归）
+- 不做实时目录监听
+- 不做硬链接替代去重（仅检测 + 删除/移动）
 
 ## 风险 / 注意事项
 
-- 大文件夹（10 万+文件）首次扫描可能较慢，哈希阶段受磁盘 I/O 限制
-- 符号链接循环可能导致无限递归（`--follow-symlinks` 时需谨慎）
-- Windows 上文件可能被锁定（`PermissionError`），已做 try/except 处理
-- Tkinter 不是线程安全的，GUI 代码严格遵守"主线程读 Tk 变量"规则
+- 大目录哈希阶段 I/O 密集
+- `--follow-symlinks` 注意 symlink 环
+- Windows 文件锁定 → 已 try/except
+- 大量视频首帧：当前同步调用 ffmpeg，可能拖慢 UI（见 TODO）
 
 ## 文件清单
 
-- `dedup.py` — 核心扫描引擎 + CLI 接口
-- `dedup_gui.py` — Tkinter GUI
-- `settings.py` — JSON 设置持久化
-- `README.md` — 快速入门
-- `USER_MANUAL.md` — 完整用户手册（11 章节：概述、安装、快速开始、GUI 指南、CLI 参考、原理、重复处理、设置、跳过目录、排错、架构）
-- `PROJECT_NOTES.md` — 本文件
-- `TODO.md` — 待办事项
+- `dedup.py`、`dedup_gui.py`、`settings.py`
+- `README.md`、`USER_MANUAL.md`、`PROJECT_NOTES.md`、`TODO.md`
 
 ## 变更日志
 
+### 2026-04（GUI 视图与预览）
+
+- **View**：List / Thumbnails / Grid / **List + preview**（选中组可视化对比）
+- 缩略图：Pillow 打开图片；ffmpeg 管道输出 PNG 首帧用于常见视频扩展名
+- 勾选集使用相对路径字符串集合，列表与缩略图模式一致
+
+### 2026-04（Keeper 规则）
+
+- 同哈希组内：**非副本样式 stem** → **更短 basename** → **mtime** → **字典序**
+- CLI / GUI / JSON 对齐；GUI **Note** 列：`copy-style name`、`longer name` 等
+
 ### 2025-07（初始版本）
 
-- 做了什么：创建重复文件检测工具（CLI + GUI）
-- 功能：3 层扫描策略、SHA-256 哈希、复选框树视图、删除/移动操作、JSON 导出、进度条、取消支持、设置持久化
-- 技术决定：纯 Python 无外部依赖；Tkinter GUI；`log_callback` / `progress_callback` / `cancel_event` 参数实现 GUI 集成而不重复逻辑
+- CLI + GUI；三层扫描、SHA-256、树视图、暂存/删除、JSON、进度、取消、设置持久化
 
 ### 2025-07（Bug 修复 #1）
 
-- 修复：删除文件后重新扫描，若无重复文件，Duplicate Results 面板不会刷新（旧结果残留）
-- 原因：`_on_scan_complete` 在 `duplicates` 为空时直接显示 messagebox，但未清除 treeview 中的旧数据
-- 修复方法：在无重复分支中添加 tree 清除、`_selected_items` 清空、`_update_action_buttons()` 调用
-- 备注：跨子文件夹重复检测已确认正常工作（`os.walk` 递归扫描所有子目录），但暂不支持多根目录扫描
+- 无重复扫描结果时清空 treeview（避免旧数据残留）
+- 备注：原笔记中的 `_selected_items` 已改为路径集合 **`_selected_rel_paths`**
+
+### 2025-07（Bug 修复 #2）
+
+- 取消扫描显示 **Scan was cancelled**，不误报无重复
