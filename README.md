@@ -22,6 +22,7 @@ The GUI provides:
 
 - Folder browser to select scan directory
 - **View** modes: **List**, **Thumbnails**, **Grid**, **List + preview** (visual compare)
+- Grid/Thumbnails large-result safety: chunked rendering + **Load more** footer
 - Tree table with checkboxes, or thumbnail tiles with **Select** on duplicate files
 - **Note** column (List mode): hints such as `copy-style name`, `longer name`
 - Image previews (**Pillow**): `pip install Pillow`

@@ -184,8 +184,9 @@ The main window opens with your saved settings restored from the last session.
 |------|----------------|
 | **List** | Table: ✓, Group, path, size, modified, **Note** |
 | **Thumbnails** | Scrollable groups; each file is a tile (image or video first frame when Pillow/ffmpeg available) |
-| **Grid** | Same tiles as Thumbnails, arranged in a **multi-column grid** per group |
+| **Grid** | Same tiles as Thumbnails, arranged in a **multi-column grid** per group (large results render in batches with **Load more**) |
 | **List + preview** | List on top; **Visual compare** strip below shows thumbnails for the **selected tree row’s group** |
+| **Smooth Scroll** (toggle) | ON = unit scrolling (slower/precise); OFF = fast multi-unit scrolling |
 
 Hints under **View** remind you to install **Pillow** and/or add **ffmpeg** to `PATH` when missing.
 

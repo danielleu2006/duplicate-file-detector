@@ -23,7 +23,7 @@
 ```
 dedup.py              ← 核心扫描引擎 + CLI（sort_paths_for_keep、报告、删除/移动）
 dedup_gui.py          ← Tkinter GUI（多视图、缩略图、勾选同步）
-settings.py           ← JSON 设置持久化（含 results_view_mode）
+settings.py           ← JSON 设置持久化（含 results_view_mode / smooth_scroll）
 ```
 
 ### 模块职责
@@ -63,6 +63,10 @@ settings.py           ← JSON 设置持久化（含 results_view_mode）
 ## 变更日志
 
 ### 2026-04（GUI 视图与预览）
+
+- 结果区新增 Smooth Scroll 开关（units / fast multi-units），并写入 smooth_scroll 设置
+- Grid/Thumbnails 对超长结果使用分批渲染（默认 80 组）+ Load more，缓解 Tk canvas 超高导致的空白页
+
 
 - **View**：List / Thumbnails / Grid / **List + preview**（选中组可视化对比）
 - 缩略图：Pillow 打开图片；ffmpeg 管道输出 PNG 首帧用于常见视频扩展名

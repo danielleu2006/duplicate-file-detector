@@ -36,6 +36,8 @@
 - [x] Tkinter GUI（扫描设置、结果树、复选框、删除/移动/导出）
 - [x] Keeper 启发式：`stem_suggests_copy` → **更短 basename** → mtime → 名字字典序
 - [x] GUI **View**：List / Thumbnails / Grid / List + preview；设置持久化 `results_view_mode`
+- [x] 滚轮滚动模式切换：`Smooth Scroll`（units / fast multi-units）并持久化 `smooth_scroll`
+- [x] 大结果 Grid/Thumbnails 分批渲染（默认 80 组）+ `Load more`，避免长列表空白页
 - [x] 缩略图预览（Pillow 可选）：图片 + ffmpeg 首帧视频（ffmpeg 在 PATH）
 - [x] 依赖状态提示（GUI 底部显示 Pillow / FFmpeg 可用性）
 - [x] 基于相对路径的统一勾选状态（列表与缩略图模式同步）
